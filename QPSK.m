@@ -1,67 +1,148 @@
-% This program simulates the bit-error-rate (BER) performance of QPSK
-x_q=[1 1 -1 -1]; %實部
-y_q=[1 -1 1 -1]; %虛部
+clear all;
+clc;
 
-QPSK_s=x_q+y_q*i;
+SNR_dB=1:20;
+snr=10.^(SNR_dB/10);
+N=100000;
+df_T=0.1;
+A=randi([0,1],1,N);
+[row,column] = size(A);
 
-Es=1; %average constellation energy for d=2;
-
-index=1;
-
-BER=zeros(1,10);
-
-for SNR=2:2:20
-%number of bit errors set to zero
-count=0;
-
-%number of iterations迭代
-N=10000;
-for it=1:N
-%generate 8 bits uniformly distributed
-A=round(rand(1,8));
+y=[];
+for it=1:row
+    p=1;
+    for t = 1:2:column
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % TX symbols
-% QPSK
-s1=QPSK_s(bi2de(A(1:2),'left-msb')+1); %left-msb:從左到右看
-s2=QPSK_s(bi2de(A(3:4),'left-msb')+1);
-s3=QPSK_s(bi2de(A(5:6),'left-msb')+1);
-s4=QPSK_s(bi2de(A(7:8),'left-msb')+1);
-C=[s1 s2 s3 s4];
+% matlab  ind 從1開始
+% QPSK，使用Gray Code
 
-%AWGN channel
-N0=Es/10^(SNR/10);
-Z=sqrt(N0/2)*(randn(1,4)+i*randn(1,4)); % variance N0
+    if A(1,t)==0 && A(1,t+1)==0
+         y(1,p)=-1-1i;
 
-%RX symbols
-R=C+Z;
+    elseif A(1,t)==0 && A(1,t+1)==1
+         y(1,p)=-1+1i;
 
-%ML decoding
-%find for S1 corresponding bits
-[H1,I]=min(QPSK_s-R(1));
-dec_bits(1,1:2)=de2bi(I(1)-1,2,'left-msb');
+    elseif A(1,t)==1 && A(1,t+1)==0
+         y(1,p)=1-1i;
+    else
+         y(1,p)=1+1i;
+    end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % TX symbols
+% % matlab  ind 從1開始
+% % QPSK，不使用Gray Code
+% 
+%     if A(1,t)==0 && A(1,t+1)==0
+%          y(1,p)=1+1i;
+% 
+%     elseif A(1,t)==0 && A(1,t+1)==1
+%          y(1,p)=-1-1i;
+% 
+%     elseif A(1,t)==1 && A(1,t+1)==0
+%          y(1,p)=-1-1i;
+%     else
+%          y(1,p)=-1+1i;
+%     end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    p=p+1;
+    end
+end
+%Channel fading coefficients
+K=exp(-j*2*pi*df_T);
 
-%find for S2 corresponding bits
-[H1,I]=min(QPSK_s-R(2));
-dec_bits(1,3:4)=de2bi(I(1)-1,2,'left-msb');
+%產生雜訊
+for count=1:length(SNR_dB)
+    N0=1/2/snr(count);
+    N0_dB=10*log10(N0);
 
-%find for S3 corresponding bits
-[H1,I]=min(QPSK_s-R(3));
-dec_bits(1,5:6)=de2bi(I(1)-1,2,'left-msb');
+    Real_Z=sqrt(N0)*randn(1,N/2);
+    Img_Z=sqrt(N0)*randn(1,N/2);
+    ys=(real(y)+Real_Z)+1i*(imag(y)+Img_Z);
+    ys_off=(real(y)*K+Real_Z)+1i*(imag(y)*K+Img_Z);
 
-%find for S4 corresponding bits
-[H1,I]=min(QPSK_s-R(4));
-dec_bits(1,7:8)=de2bi(I(1)-1,2,'left-msb');
+ %  以下為嘗試項目
+ %  ni=wgn(1,N/2,N0_dB);
+ %  ys=awgn(y,N0_dB);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RX symbols
+% QPSK轉回序列(無頻偏)
+    [n,m] = size(ys);
+    q1=[];
+    q2=[];
+    for b=1:n
+        j=1;
 
-%count errors
-count=count+sum(abs(A-dec_bits));
+        for d=1:m
+            if real(ys(b,d))<0 && imag(ys(b,d))<0
+                q1(b,j)=0;
+                q1(b,j+1)=0;
+            elseif real(ys(b,d))<0 && imag(ys(b,d))>0
+                q1(b,j)=0;
+                q1(b,j+1)=1;
+            elseif real(ys(b,d))>0 && imag(ys(b,d))<0
+                q1(b,j)=1;
+                q1(b,j+1)=0;
+            elseif real(ys(b,d))>0 && imag(ys(b,d))>0
+                q1(b,j)=1;
+                q1(b,j+1)=1;
+            end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RX symbols
+% QPSK轉回序列(有頻偏)
+            if real(ys_off(b,d))<0 && imag(ys_off(b,d))<0
+                q2(b,j)=0;
+                q2(b,j+1)=0;
+            elseif real(ys_off(b,d))<0 && imag(ys_off(b,d))>0
+                q2(b,j)=0;
+                q2(b,j+1)=1;
+            elseif real(ys_off(b,d))>0 && imag(ys_off(b,d))<0
+                q2(b,j)=1;
+                q2(b,j+1)=0;
+            elseif real(ys_off(b,d))>0 && imag(ys_off(b,d))>0
+                q2(b,j)=1;
+                q2(b,j+1)=1;
+            end
+            j=j+2;
+        end
+    end
+    [number1,BER_AWGN(count)]=symerr(A,q1);
+    [number2,BER_AWGN_off(count)]=symerr(A,q2);
+    [number3,BER_Initial(count)]=symerr(A,A);
 
-end;
-BER(index)=count/(N*8)
-index=index+1;
-end;
-figure(100)
-SNR=2:2:20;
-semilogy(SNR,BER)
-xlabel('SNR(dB)')
-ylabel('BER')
-grid
-title('BER Performance of the QPSK')
+end
+
+% BER_Initial=1/2*erfc(sqrt(snr/2));
+
+%計算平均位元錯誤率
+BER_avg_I=sum(BER_Initial)/count;
+BER_avg_N=sum(BER_AWGN)/count;
+BER_avg_O=sum(BER_AWGN_off)/count;
+
+%繪製理論之QPSK
+scatterplot(y);
+title({'QPSK Initial',['Average BER : ',num2str(BER_avg_I)] });
+grid on;
+axis tight;
+
+%繪製加入AWGN之QPSK
+scatterplot(ys);
+title({'QPSK AWGN',['Average BER : ',num2str(BER_avg_N)] });
+grid on;
+axis tight;
+
+%繪製頻偏且加入AWGN之QPSK
+scatterplot(ys_off);
+title({'QPSK AWGN',['Average BER : ',num2str(BER_avg_O)] });
+grid on;
+axis tight;
+
+%繪圖
+figure;
+semilogy(SNR_dB,BER_AWGN,'-b','LineWidth',2);hold on;
+semilogy(SNR_dB,BER_AWGN_off,'-r','LineWidth',2);hold on;
+legend('QPSK+AWGN','頻偏QPSK+AWGN');
+axis([-1,10,10^-4,1]);
+title('BER Performance of the QPSK');
+xlabel('SNR(dB)');
+ylabel('BER');

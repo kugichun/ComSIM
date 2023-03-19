@@ -1,4 +1,4 @@
-% Experiment_1-2 Autocorrelation Calculation
+% Experiment_1-1 Autocorrelation Calculation(Linear shift)
 clear;
 Nzc=997;
 q=Nzc/31;%32.16
@@ -18,14 +18,14 @@ for m = 1:Nzc
 end
 
 t=1:997;
-plot(t,abs(cor_zc1),'b'); % abs() %求绝对值
+plot(t,abs(cor_zc1),'b'); % abs() %求絕對值
 
 
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % Experiment_1 Autocorrelation Calculation
+% % Experiment_1-2 Autocorrelation Calculation (circular shift)
 % clear;
 % Nzc=997;
 % q=Nzc/31;%32.16
@@ -46,4 +46,4 @@ plot(t,abs(cor_zc1),'b'); % abs() %求绝对值
 % end
 % 
 % t=1:997;
-% plot(t,abs(cor_zc1),'b'); % abs() %求绝对值
+% plot(t,abs(cor_zc1),'b'); % abs() %求絕對值
