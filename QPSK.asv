@@ -1,17 +1,17 @@
 clear all;
 clc;
 
-SNR_dB=1:20;                            % 設定訊雜比範圍，此為dB
-snr=10.^(SNR_dB/10);                    % 將訊雜比從dB轉化為Linear去算SNR  
-N=100000;                               % 取樣次數
+SNR_dB=1:20;                % 設定訊雜比範圍，此為dB
+snr=10.^(SNR_dB/10);        % 將訊雜比從dB轉化為Linear去算SNR  
+N=100000;                   % 取樣次數
 df_T=0.1;
-A=randi([0,1],1,N);                     % 創建一個從0跟1隨機取N次的序列A
-[row,column] = size(A);                 % 將A的行列數值分別存放 row=1,column=100000
+A=randi([0,1],1,N);         % 創建一個從0跟1隨機取N次的序列A
+[row,column] = size(A);     % 將A的行列數值分別存放 row=1,column=100000
 
-y=[];                                   % 創建一個容器，等等放QPSK
-for it=1:row                            % 將序列轉換後映射至星座圖
+y=[];                       % 創建一個容器，等等放QPSK
+for it=1:row                % 將序列轉換後映射至星座圖
     p=1;
-    for t = 1:2:column                  % 1到100000，一次讀2個，共有50000組
+    for t = 1:2:column      % 1到100000，一次讀2個，共有50000組
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % TX symbols
 % matlab  ind 從1開始
@@ -48,37 +48,35 @@ for it=1:row                            % 將序列轉換後映射至星座圖
     p=p+1;
     end
 end
-
 %Channel fading coefficients
 K=exp(-j*2*pi*df_T);
 
 %產生雜訊
-for count=1:length(SNR_dB)              % count = 1:20
-    N0=1/2/snr(count);                  % 計算SNR功率，snr=10.^(SNR_dB/10)，(symbol energy=2)
-    N0_dB=10*log10(N0);                 % 將Linear Noise轉換為dB值
+for count=1:length(SNR_dB)          % count = 1:20
+    N0=1/2/snr(count);              % 計算SNR功率，snr=10.^(SNR_dB/10)，(symbol energy=2)
+    N0_dB=10*log10(N0);             % 將Linear Noise轉換為dB值
 
-    Real_Z=sqrt(N0)*randn(1,N/2);       % 設定實部雜訊
-    Img_Z=sqrt(N0)*randn(1,N/2);        % 設定虛部雜訊
+    Real_Z=sqrt(N0)*randn(1,N/2);   % 設定實部雜訊
+    Img_Z=sqrt(N0)*randn(1,N/2);    % 設定虛部雜訊
     ys=(real(y)+Real_Z)+1i*(imag(y)+Img_Z);         % 訊息+雜訊
     ys_off=(real(y)*K+Real_Z)+1i*(imag(y)*K+Img_Z); % 訊息*頻偏+雜訊
 
  %  以下為嘗試項目
- %  ni=wgn(1,N/2,N0_dB);                % y=wgn(m,n,p)產生一個m列n行的AWGN矩陣，p以dBW為單位
+ %  ni=wgn(1,N/2,N0_dB);    % y=wgn(m,n,p)產生一個m列n行的AWGN矩陣，p以dBW為單位
 
- %  ys=y+ni;                            % 訊息+雜訊
+ %  ys=y+ni;                % 訊息+雜訊
  %  ys=awgn(y,N0_dB);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % RX symbols
 % QPSK轉回序列(無頻偏)
-
-    [n,m] = size(ys);                   % 將ys的行列數值分別存放 n=1,m=50000(2個bits一組)
-    q1=[];                              % 創建一個容器，等等放解回之序列
-    q2=[];                              % 創建一個容器，等等放解回之頻偏序列
-    for b=1:n   %1:1                    % 利用循環條件式解回序列(將4個星座點位置輸出為01序列)
+    [n,m] = size(ys);       % 將ys的行列數值分別存放 n=1,m=50000(2個bits一組)
+    q1=[];                  % 創建一個容器，等等放解回之序列
+    q2=[];                  % 創建一個容器，等等放解回之頻偏序列
+    for b=1:n   %1:1        % 利用循環條件式解回序列(將4個星座點位置輸出為01序列)
         j=1;
 
-% 利用星座點象限位置判定01序列
-        for d=1:m                       % 1:50000
+    % 利用星座點象限位置判定01序列
+        for d=1:m           % 1:50000
             if real(ys(b,d))<0 && imag(ys(b,d))<0 %real()取實部，imag()取虛部
                 q1(b,j)=0;
                 q1(b,j+1)=0;
@@ -108,19 +106,19 @@ for count=1:length(SNR_dB)              % count = 1:20
                 q2(b,j)=1;
                 q2(b,j+1)=1;
             end
-            j=j+2;                              % 2個一組進行判定，所以完成一次判定後往後推2格(新的一組)
+            j=j+2;          % 2個一組進行判定，所以完成一次判定後往後推2格(新的一組)
         end
     end
 
     % 計算BER，公式如下
-    % symerr(X,Y) = abs(X-Y)/abs(Y)
-    [number1,BER_AWGN(count)]=symerr(A,q1);     % BER_AWGN     
-    [number2,BER_AWGN_off(count)]=symerr(A,q2); % BER_AWGN_off
-    [number3,BER_Initial(count)]=symerr(A,A);   % BER_Initial
+    % symerr(X,Y) = abs(X-Y)/abs
+    [number1,BER_AWGN(count)]=symerr(A,q1);
+    [number2,BER_AWGN_off(count)]=symerr(A,q2);
+    [number3,BER_Initial(count)]=symerr(A,A);
 
 end
 
-% BER_Initial=1/2*erfc(sqrt(snr/2));            % 計算理論QPSK之BER
+% BER_Initial=1/2*erfc(sqrt(snr/2));
 
 %計算平均位元錯誤率
 BER_avg_I=sum(BER_Initial)/count;
