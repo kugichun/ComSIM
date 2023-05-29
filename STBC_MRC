@@ -1,0 +1,130 @@
+clear; clc; close all;
+
+% MCS
+M = 4;
+K = log2(M);
+CR = 1;
+
+% EbN0 range
+EbN0_dB_vec = 0:3:20;
+
+
+%% Alamouti 2x1
+
+BER_Alamouti = zeros(size(EbN0_dB_vec));
+N = 1e6;
+
+% main loop
+for EbN0_dB_idx = 1:length(EbN0_dB_vec)
+    
+    % SNR-EsN0-EbN0 conversion
+    EbN0_dB = EbN0_dB_vec(EbN0_dB_idx);
+    EbN0 = 10^(.1*EbN0_dB);
+    N0 = 1; % normalized AWGN
+    Eb = EbN0 * N0;
+    Es = Eb*K*CR;
+    
+    % info. bits generation
+    bits = randi([0, 1], 2*K*N*CR, 1);
+
+    % channel coding
+    
+    % bits to symbol mapping
+    symbols = qammod(bits, M, "gray", "InputType", "bit", 'UnitAveragePower', true);
+    symbols = reshape(symbols, 2, 1, []);
+%     symbols=squeeze(symbols);
+    X = zeros(2, 2, N);
+
+    % STBC Alamouti
+    % 1st interval，antena1:x1 ，antena2:x2
+    X(:, 1, :) = symbols; 
+
+    % 2nd interval，antena1:x2* ，antena2:-x1*
+    X(1, 2, :) = conj(symbols(2, 1, :));
+    X(2, 2, :) = -conj(symbols(1, 1, :));
+
+    % transmission over Rayleigh fading channel
+    H = sqrt(N0/2) * (randn(1, 2, N)+1j*randn(1, 2, N));
+%   H=squeeze(H);
+    n = sqrt(N0/2) * (randn(1, 2, N)+1j*randn(1, 2, N));
+    y = sqrt(Es/2)*pagemtimes(H, X)+n; % y=HX+n
+
+    % receiver processing
+    y = pagetranspose(y);
+%     y=squeeze(y);
+    y(2, 1, :) = conj(y(2, 1, :));
+%     y=squeeze(y);
+    
+    % channel decoding
+    % form equivalent MIMO channel
+    H_her = zeros(2, 2, N);
+    H_her(1, 1, :) = H(1, 1, :);
+    H_her(1, 2, :) = H(1, 2, :);
+    H_her(2, 1, :) = -conj(H(1, 2, :));
+    H_her(2, 2, :) = conj(H(1, 1, :));
+    norm_factor = squeeze(abs(H(1, 1, :)).^2+abs(H(1, 2, :)).^2).';
+    
+    %Hermitian
+    y_hat = pagemtimes(pagectranspose(H_her), y);
+    y_hat = squeeze(y_hat)./norm_factor; % normalization
+    
+   
+
+
+    % BER calculation
+    bits_hat = qamdemod(y_hat(:), M, 'gray', 'OutputType', 'bit', 'UnitAveragePower', true);
+    BER_Alamouti(EbN0_dB_idx) = sum(bits~=bits_hat)/numel(bits);
+
+end
+
+%% MRC 1x2
+
+BER_MRC = zeros(size(EbN0_dB_vec));
+
+N = 1e6;
+
+% main loop
+for EbN0_dB_idx = 1:length(EbN0_dB_vec)
+    
+    % SNR-EsN0-EbN0 conversion
+    EbN0_dB = EbN0_dB_vec(EbN0_dB_idx);
+    EbN0 = 10^(.1*EbN0_dB);
+    N0 = 1; % normalized AWGN
+    Eb = EbN0 * N0;
+    Es = Eb*K*CR;
+    
+    % bits generation
+    bits = randi([0, 1], K*N*CR, 1);
+
+    % channel coding
+    
+    % bits to symbol mapping
+    symbols = qammod(bits, M, "gray", "InputType", "bit", 'UnitAveragePower', true);
+    X = reshape(symbols, 1, 1, N);
+
+    % transmission over Rayleigh fading channel
+    H = sqrt(N0/2) * (randn(2, 1, N)+1j*randn(2, 1, N));
+    n = sqrt(N0/2) * (randn(2, 1, N)+1j*randn(2, 1, N));
+    y = sqrt(Es)*H.*X+n;
+    
+    norm_factor = squeeze(abs(H(1, 1, :)).^2+abs(H(2, 1, :)).^2);
+    y_hat = pagemtimes(pagectranspose(H), y);
+    y_hat = squeeze(y_hat)./norm_factor; % squeeze:刪除了長度為1 的維度
+    
+    % channel decoding
+
+    
+    % BER calculation
+    bits_hat = qamdemod(y_hat(:), M, 'gray', 'OutputType', 'bit', 'UnitAveragePower', true);
+    BER_MRC(EbN0_dB_idx) = sum(bits~=bits_hat)/numel(bits);
+end
+
+%% plot
+figure('Color', [1 1 1]);
+hold on; grid on; box on;
+plot(EbN0_dB_vec, BER_Alamouti, 'r-s', 'LineWidth', 1.5);
+plot(EbN0_dB_vec, BER_MRC, 'b-o', 'LineWidth', 1.5);
+set(gca, 'Yscale', 'log');
+legend('Alamouti: 2x1', 'MRC 1x2');
+xlabel('EbN0 (dB)');
+ylabel('BER');
