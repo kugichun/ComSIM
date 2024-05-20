@@ -17,7 +17,7 @@
 # Oral 3  
 • Smart Antenna and Beamforming (PhaseShift、MVDR)  
 • STBC codes (Space Time Block Coding)  
-• MRC（maximum ratio combining）  
+• MRC（Maximum Ratio Combining）  
 • MIMO-OFDM System  
 
 
