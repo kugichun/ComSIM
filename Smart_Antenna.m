@@ -1,0 +1,95 @@
+clear; clc; close all;
+
+t = 0:0.001:0.3;                % Time, sampling frequency : 1kHz
+s = zeros(size(t));  
+s = s(:);                       
+s(201:205) = s(201:205) + 1;    % Pulse signal
+plot(t,s);
+title('Pulse');xlabel('Time (s)');ylabel('Amplitude (V)');
+
+carrierFreq = 100e6;
+wavelength = physconst('LightSpeed')/carrierFreq;
+
+% uniform linear array (ULA) ，The array contains 10 isotropic antennas
+ula = phased.ULA('NumElements',10,'ElementSpacing',wavelength/2);
+ula.Element.FrequencyRange = [90e5 110e6];
+
+% setting arrive Angle 
+inputAngle = [45; 0];
+x = collectPlaneWave(ula,s,inputAngle,carrierFreq);
+
+% Create random number generator 
+rs = RandStream.create('mt19937ar','Seed',2008);
+
+% Add noise
+noisePwr = .5;   % noise power 
+noise = sqrt(noisePwr/2)*(randn(rs,size(x))+1i*randn(rs,size(x)));
+rxSignal = x + noise;
+
+subplot(211); 
+plot(t,abs(rxSignal(:,1)));axis tight;
+title('Pulse at Antenna 1');xlabel('Time (s)');ylabel('Magnitude (V)');
+subplot(212);
+plot(t,abs(rxSignal(:,2)));axis tight;
+title('Pulse at Antenna 2');xlabel('Time (s)');ylabel('Magnitude (V)');
+
+%% Phase Shift Beamformer
+psbeamformer = phased.PhaseShiftBeamformer('SensorArray',ula,...
+    'OperatingFrequency',carrierFreq,'Direction',inputAngle,...
+    'WeightsOutputPort', true);
+
+[yCbf,w] = psbeamformer(rxSignal);
+% Plot the output
+clf;
+plot(t,abs(yCbf)); axis tight;
+title('Output of Phase Shift Beamformer');
+xlabel('Time (s)');ylabel('Magnitude (V)');
+
+% Plot array response with weighting
+pattern(ula,carrierFreq,-180:180,0,'Weights',w,'Type','powerdb',...
+    'PropagationSpeed',physconst('LightSpeed'),'Normalize',false,...
+    'CoordinateSystem','rectangular');
+axis([-90 90 -60 0]);
+
+nSamp = length(t);
+s1 = 10*randn(rs,nSamp,1);
+s2 = 10*randn(rs,nSamp,1);
+% interference at 30 degrees and 50 degrees
+interference = collectPlaneWave(ula,[s1 s2],[30 50; 0 0],carrierFreq);
+
+noisePwr = 0.00001;   % noise power, 50dB SNR 
+noise = sqrt(noisePwr/2)*(randn(rs,size(x))+1i*randn(rs,size(x)));
+
+rxInt = interference + noise;                 % total interference + noise
+rxSignal = x + rxInt;                % total received Signal
+
+yCbf = psbeamformer(rxSignal);
+
+plot(t,abs(yCbf)); axis tight;
+title('Output of Phase Shift Beamformer With Presence of Interference');
+xlabel('Time (s)');ylabel('Magnitude (V)');
+
+% Define the MVDR beamformer
+mvdrbeamformer = phased.MVDRBeamformer('SensorArray',ula,...
+    'Direction',inputAngle,'OperatingFrequency',carrierFreq,...
+    'WeightsOutputPort',true);
+
+mvdrbeamformer.TrainingInputPort = true;
+
+[yMVDR, wMVDR] = mvdrbeamformer(rxSignal,rxInt);
+
+plot(t,abs(yMVDR)); axis tight;
+title('Output of MVDR Beamformer With Presence of Interference');
+xlabel('Time (s)');ylabel('Magnitude (V)');
+
+pattern(ula,carrierFreq,-180:180,0,'Weights',wMVDR,'Type','powerdb',...
+    'PropagationSpeed',physconst('LightSpeed'),'Normalize',false,...
+    'CoordinateSystem','rectangular');
+axis([-90 90 -80 20]);
+
+hold on;   % compare to PhaseShift
+pattern(ula,carrierFreq,-180:180,0,'Weights',w,...
+    'PropagationSpeed',physconst('LightSpeed'),'Normalize',false,...
+    'Type','powerdb','CoordinateSystem','rectangular');
+hold off;
+legend('MVDR','PhaseShift')
