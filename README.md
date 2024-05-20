@@ -13,7 +13,7 @@
 # Oral 2  
 • Rayleigh & Rician models  
 • Equalizer  
-• RayTracing simulation  
+• RayTracing simulation  
 
 # Oral 3  
 • Smart Antenna and Beamforming (PhaseShift、MVDR)  
