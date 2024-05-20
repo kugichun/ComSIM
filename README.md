@@ -2,7 +2,7 @@
 
 # Oral 1  
 • PN Sequence  
-• ZC sequence
+• ZC sequence  
 • OVSF codes  
 • Linear & Circular Convolution  
 • Parserval’s theorem  
